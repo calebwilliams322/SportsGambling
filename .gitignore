@@ -1,7 +1,3 @@
-# Data (downloaded at runtime, not tracked)
-data/raw/
-data/processed/
-
 # Model weights
 models/
 

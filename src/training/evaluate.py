@@ -40,11 +40,20 @@ def compute_metrics(predictions: np.ndarray, actuals: np.ndarray) -> dict:
     }
 
 
-def evaluate_model(model, test_loader, device="cpu", stat_name="stat") -> dict:
+def evaluate_model(model, test_loader, device="cpu", stat_name="stat",
+                   target_stats=None) -> dict:
     """
     Full evaluation: compute metrics and print a summary.
+    If target_stats is provided (dict with 'mean' and 'std'), denormalizes
+    predictions and actuals back to original scale before computing metrics.
     """
     predictions, actuals = predict(model, test_loader, device)
+
+    # Denormalize if targets were normalized during training
+    if target_stats is not None:
+        predictions = predictions * target_stats["std"] + target_stats["mean"]
+        actuals = actuals * target_stats["std"] + target_stats["mean"]
+
     metrics = compute_metrics(predictions, actuals)
 
     print(f"\n{'=' * 50}")

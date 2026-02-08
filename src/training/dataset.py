@@ -9,7 +9,7 @@ from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import StandardScaler
 from src.config import (
     DATA_PROCESSED, TRAIN_SEASONS, VAL_SEASONS, TEST_SEASONS,
-    MODEL_DEFAULTS,
+    MODEL_DEFAULTS, STAT_POSITION_FILTER,
 )
 
 
@@ -95,12 +95,14 @@ def prepare_data(target_stat: str):
     df = pd.read_parquet(DATA_PROCESSED / "features_player_weekly.parquet")
 
     # Filter to players who actually have data for this stat
-    # e.g., for passing_yards, only QBs; for receiving_yards, WRs/TEs/RBs
     df = df[df[target_stat].notna()].copy()
 
-    # For prop-relevant stats, filter out rows where the stat is 0
-    # (player was active but didn't get targets/carries = not a prop candidate)
-    # Keep 0s for now — the model should learn this too
+    # Position filtering — only train on relevant positions per stat
+    positions = STAT_POSITION_FILTER.get(target_stat)
+    if positions and "position" in df.columns:
+        before = len(df)
+        df = df[df["position"].isin(positions)].copy()
+        print(f"Position filter ({positions}): {before} → {len(df)} rows")
 
     # Get feature columns
     feature_cols = get_feature_columns(df, target_stat)
@@ -145,15 +147,27 @@ def prepare_data(target_stat: str):
     X_val = scaler.transform(X_val)
     X_test = scaler.transform(X_test)
 
+    # Normalize targets (fit on train only) — critical for Huber loss to work
+    target_mean = float(np.mean(y_train))
+    target_std = float(np.std(y_train))
+    if target_std < 1e-6:
+        target_std = 1.0  # avoid division by zero
+    print(f"  Target normalization: mean={target_mean:.2f}, std={target_std:.2f}")
+
+    y_train_norm = (y_train - target_mean) / target_std
+    y_val_norm = (y_val - target_mean) / target_std
+    y_test_norm = (y_test - target_mean) / target_std
+
     # Create datasets and loaders
     batch_size = MODEL_DEFAULTS["batch_size"]
 
-    train_dataset = PlayerPropsDataset(X_train, y_train)
-    val_dataset = PlayerPropsDataset(X_val, y_val)
-    test_dataset = PlayerPropsDataset(X_test, y_test)
+    train_dataset = PlayerPropsDataset(X_train, y_train_norm)
+    val_dataset = PlayerPropsDataset(X_val, y_val_norm)
+    test_dataset = PlayerPropsDataset(X_test, y_test_norm)
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
-    return train_loader, val_loader, test_loader, scaler, feature_cols
+    target_stats_info = {"mean": target_mean, "std": target_std}
+    return train_loader, val_loader, test_loader, scaler, feature_cols, target_stats_info

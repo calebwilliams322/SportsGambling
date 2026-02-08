@@ -29,7 +29,7 @@ def train_single_stat(stat_name: str):
     print(f"{'#' * 60}\n")
 
     # Prepare data
-    train_loader, val_loader, test_loader, scaler, feature_cols = prepare_data(stat_name)
+    train_loader, val_loader, test_loader, scaler, feature_cols, target_info = prepare_data(stat_name)
 
     # Create model
     input_size = len(feature_cols)
@@ -40,8 +40,9 @@ def train_single_stat(stat_name: str):
     trainer = Trainer(model)
     history = trainer.fit(train_loader, val_loader, stat_name=stat_name)
 
-    # Evaluate on test set
-    results = evaluate_model(model, test_loader, device=trainer.device, stat_name=stat_name)
+    # Evaluate on test set (denormalize predictions back to original scale)
+    results = evaluate_model(model, test_loader, device=trainer.device,
+                             stat_name=stat_name, target_stats=target_info)
     baseline = compare_to_baseline(results["predictions"], results["actuals"], stat_name)
 
     # Save metadata
@@ -49,6 +50,7 @@ def train_single_stat(stat_name: str):
         "stat": stat_name,
         "n_features": input_size,
         "feature_columns": feature_cols,
+        "target_normalization": target_info,
         "history": {
             "best_val_loss": history["best_val_loss"],
             "epochs_trained": history["epochs_trained"],

@@ -88,9 +88,23 @@ NGS_RECEIVING_FEATURES = [
 ]
 
 # --- Walk-forward split ---
+# Use 2024 as test (clean data from import_weekly_data).
+# 2025 data (PBP fallback) is available for rolling features in predictions
+# but has some missing columns so it's not ideal as a test set.
 TRAIN_SEASONS = list(range(2016, 2023))   # 2016-2022
 VAL_SEASONS = [2023]
 TEST_SEASONS = [2024]
+
+# --- Position filters per stat (only train on relevant positions) ---
+STAT_POSITION_FILTER = {
+    "passing_yards": ["QB"],
+    "passing_tds": ["QB"],
+    "rushing_yards": ["RB", "QB", "WR", "FB"],
+    "carries": ["RB", "QB", "WR", "FB"],
+    "receptions": ["WR", "TE", "RB"],
+    "receiving_yards": ["WR", "TE", "RB"],
+    "receiving_tds": ["WR", "TE", "RB"],
+}
 
 # --- Model hyperparameters (MVP defaults) ---
 MODEL_DEFAULTS = {
