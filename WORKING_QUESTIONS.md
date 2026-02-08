@@ -5,12 +5,13 @@ Open questions to guide project planning and scoping.
 ## Sports & Use Cases
 
 1. Which sports are we targeting first? (NFL, NBA, MLB, soccer, etc.)
+   - **Answer: NFL first, but building the architecture to be sport-agnostic and extensible.**
 2. What kind of bets are we focusing on?
-   - Moneyline (straight win/loss prediction)
-   - Spread (predicting margin of victory)
-   - Over/Under (total points/scores)
-   - Player props (individual player performance)
-   - Live/in-game betting (real-time predictions)
+   - ~~Moneyline (straight win/loss prediction)~~
+   - ~~Spread (predicting margin of victory)~~
+   - ~~Over/Under (total points/scores)~~
+   - **Player props (individual player performance) — MVP focus**
+   - ~~Live/in-game betting (real-time predictions)~~
 
 ## Data
 
@@ -34,8 +35,10 @@ Open questions to guide project planning and scoping.
 ## Strategy
 
 7. Are we predicting outcomes, or specifically finding value against the betting lines?
+   - **Answer: Predict raw stat values (e.g. passing yards, rushing yards, receptions) and compare against posted lines to find value.**
 8. How are we thinking about bankroll management / Kelly criterion on the output side?
 
 ## Scope
 
 9. What does the first iteration look like? (one sport, one bet type?)
+   - **Answer: NFL player props MVP. Modular design so we can plug in new sports, bet types, and models over time.**
