@@ -8,8 +8,8 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import StandardScaler
 from src.config import (
-    DATA_PROCESSED, TRAIN_SEASONS, VAL_SEASONS, TEST_SEASONS,
-    MODEL_DEFAULTS, STAT_POSITION_FILTER,
+    DATA_PROCESSED, MODEL_DEFAULTS, STAT_POSITION_FILTER, EXCLUDED_FEATURES,
+    TRAIN_CUTOFF, VAL_CUTOFF,
 )
 
 
@@ -77,6 +77,9 @@ def get_feature_columns(df: pd.DataFrame, target_stat: str) -> list[str]:
         if any(col.startswith(p) for p in raw_ngs_prefixes):
             if not any(col.endswith(f"_avg_{w}") for w in [3, 5]):
                 continue
+        # Skip features unavailable at prediction time
+        if col in EXCLUDED_FEATURES:
+            continue
         # Skip non-numeric columns
         if df[col].dtype not in [np.float64, np.float32, np.int64, np.int32, float, int]:
             continue
@@ -108,14 +111,27 @@ def prepare_data(target_stat: str):
     feature_cols = get_feature_columns(df, target_stat)
     print(f"Using {len(feature_cols)} features for {target_stat}")
 
-    # Split by season (walk-forward)
-    train_df = df[df["season"].isin(TRAIN_SEASONS)]
-    val_df = df[df["season"].isin(VAL_SEASONS)]
-    test_df = df[df["season"].isin(TEST_SEASONS)]
+    # Chronological split — no temporal leakage
+    # Train: all data up to 2025 week 14
+    # Val:   2025 weeks 15-18 (late regular season, for early stopping)
+    # Test:  2025 weeks 19+ (playoffs, closest to SB predictions)
+    train_df = df[
+        (df["season"] < TRAIN_CUTOFF[0]) |
+        ((df["season"] == TRAIN_CUTOFF[0]) & (df["week"] <= TRAIN_CUTOFF[1]))
+    ]
+    val_df = df[
+        (df["season"] == VAL_CUTOFF[0]) &
+        (df["week"] > TRAIN_CUTOFF[1]) &
+        (df["week"] <= VAL_CUTOFF[1])
+    ]
+    test_df = df[
+        (df["season"] == VAL_CUTOFF[0]) &
+        (df["week"] > VAL_CUTOFF[1])
+    ]
 
-    print(f"  Train: {len(train_df)} rows ({TRAIN_SEASONS[0]}-{TRAIN_SEASONS[-1]})")
-    print(f"  Val:   {len(val_df)} rows ({VAL_SEASONS})")
-    print(f"  Test:  {len(test_df)} rows ({TEST_SEASONS})")
+    print(f"  Train: {len(train_df)} rows (up to {TRAIN_CUTOFF[0]} wk{TRAIN_CUTOFF[1]})")
+    print(f"  Val:   {len(val_df)} rows ({VAL_CUTOFF[0]} wk{TRAIN_CUTOFF[1]+1}-{VAL_CUTOFF[1]})")
+    print(f"  Test:  {len(test_df)} rows ({VAL_CUTOFF[0]} wk{VAL_CUTOFF[1]+1}+)")
 
     # Drop rows where we don't have enough history (first few games per player)
     # Use the 3-game rolling avg as a proxy — if it's NaN, we don't have enough data

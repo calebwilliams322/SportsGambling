@@ -83,11 +83,9 @@ def predict_players(stat_name: str, player_names: list[str] = None):
     # Normalize (using training data stats — ideally we'd save the scaler,
     # but for now we standardize based on the feature values)
     scaler = StandardScaler()
-    # Load train data to fit scaler properly
+    # Load all data to fit scaler (random split uses all seasons)
     full_df = pd.read_parquet(DATA_PROCESSED / "features_player_weekly.parquet")
-    from src.config import TRAIN_SEASONS
-    train_df = full_df[full_df["season"].isin(TRAIN_SEASONS)]
-    train_X = train_df[feature_cols].values.astype(np.float32)
+    train_X = full_df[feature_cols].values.astype(np.float32)
     train_X = np.nan_to_num(train_X, nan=0.0)
     scaler.fit(train_X)
 

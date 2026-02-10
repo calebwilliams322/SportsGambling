@@ -131,6 +131,19 @@ def _aggregate_pbp_to_weekly(pbp: pd.DataFrame) -> pd.DataFrame:
     )
     base["fantasy_points_ppr"] = base["fantasy_points"] + base["receptions"] * 1
 
+    # Look up positions from roster data for players missing position
+    pbp_seasons = sorted(base["season"].unique())
+    try:
+        rosters = nfl.import_seasonal_rosters(pbp_seasons)
+        pos_lookup = rosters.drop_duplicates("player_id").set_index("player_id")["position"]
+        missing_pos = base["position"].isna()
+        if missing_pos.any():
+            base.loc[missing_pos, "position"] = base.loc[missing_pos, "player_id"].map(pos_lookup)
+            filled = missing_pos.sum() - base["position"].isna().sum()
+            print(f"  Filled {filled} player positions from roster data")
+    except Exception as e:
+        print(f"  Warning: could not look up positions from roster: {e}")
+
     return base
 
 
